@@ -5,7 +5,10 @@ An autonomous Telegram bot that monitors your SolarEdge solar panel system and s
 ## 🌟 Features
 - **Excess Energy Alerts:** Notifies you when you are exporting a significant amount of electricity to the grid (e.g. >1000W), reminding you to turn on appliances (washing machine, AC, etc.) to make the most of your free solar power.
 - **High Consumption Warnings:** Alerts you if your home is buying an excessive amount of electricity from the grid.
-- **Generation Milestones:** Celebrates when your solar panels hit daily peaks (e.g. 2kW, 3kW, 4kW, 5kW).
+- **Advanced Step Tracking:** Monitors generation in 500W intervals. Intelligently tracks the daily maximum and notifies you with "Daily Records", or lets you know if generation is recovering ("Going up") or dropping ("Going down") without spam.
+- **Persistent Memory:** Uses a `memoria.json` file to safely remember today's milestones across reboots.
+- **Smart Grid Polarity:** Accurately calculates true Import/Export direction using the SolarEdge connection matrix.
+- **2-Hour Periodic Summaries:** Sends a quiet summary of your generation every 2 hours, strictly between 06:00 and 22:00 to prevent night-time disturbances.
 - **Instant Status (`/estat`):** Reply to the bot with `/estat` or `/estado` to instantly receive a real-time summary of your current generation, load, and grid exchange.
 - **Demo Mode:** If you don't have an API key yet, the bot runs in a simulated test mode so you can verify the Telegram connection.
 
