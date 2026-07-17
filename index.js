@@ -31,7 +31,7 @@ bot.onText(/\/(estado|estat)/, async (msg) => {
     const data = await fetchSolarEdgeData();
     const pv = (data.PV?.currentPower || 0) * 1000;
     const load = (data.LOAD?.currentPower || 0) * 1000;
-    const grid = (data.GRID?.currentPower || 0) * 1000;
+    const grid = (data.gridKwSigned !== undefined ? data.gridKwSigned : (data.GRID?.currentPower || 0)) * 1000;
     
     let text = `☀️ *Estat actual de les plaques:*\n`;
     text += `⚡ Generació: ${pv.toFixed(0)} W\n`;
@@ -49,12 +49,18 @@ async function fetchSolarEdgeData() {
     return {
       PV: { currentPower: 3.5 }, // 3500W
       LOAD: { currentPower: 1.2 }, // 1200W
-      GRID: { currentPower: -2.3 } // Exportando 2300W
+      GRID: { currentPower: -2.3 }, // Exportando 2300W
+      gridKwSigned: -2.3
     };
   }
   const url = `https://monitoringapi.solaredge.com/site/${SOLAREDGE_SITE_ID}/currentPowerFlow?api_key=${SOLAREDGE_API_KEY}`;
   const response = await axios.get(url);
-  return response.data.siteCurrentPowerFlow;
+  const flow = response.data.siteCurrentPowerFlow;
+  
+  const isExporting = flow.connections?.some(c => c.to.toLowerCase() === 'grid');
+  flow.gridKwSigned = isExporting ? -(flow.GRID?.currentPower || 0) : (flow.GRID?.currentPower || 0);
+  
+  return flow;
 }
 
 async function checkAlerts() {
@@ -64,7 +70,7 @@ async function checkAlerts() {
 
     const pvKw = data.PV?.currentPower || 0;
     const loadKw = data.LOAD?.currentPower || 0;
-    const gridKw = data.GRID?.currentPower || 0;
+    const gridKw = data.gridKwSigned !== undefined ? data.gridKwSigned : (data.GRID?.currentPower || 0);
 
     const now = Date.now();
     const currentDay = new Date().getDate();
