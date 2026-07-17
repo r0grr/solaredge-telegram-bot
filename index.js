@@ -22,7 +22,8 @@ let state = {
   lastNotifiedPv: 0,
   lastStatusTime: 0,
   lastExcessAlertTime: 0,
-  lastConsumptionAlertTime: 0
+  lastConsumptionAlertTime: 0,
+  isConsumingFromGrid: false
 };
 
 function loadMemory() {
@@ -111,11 +112,17 @@ async function checkAlerts() {
 
     // 1. Excessive consumption
     if (gridKw >= CONSUMPTION_THRESHOLD_KW) {
+      state.isConsumingFromGrid = true;
       if (now - state.lastConsumptionAlertTime > ALERT_COOLDOWN_MS) {
         bot.sendMessage(CHAT_ID, `🚨 *Avís de Consum:* S'estan comprant ${(gridKw * 1000).toFixed(0)}W de la xarxa elèctrica. Reviseu si hi ha alguna cosa encesa que es pugui apagar!`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
         state.lastConsumptionAlertTime = now;
         saveMemory();
       }
+    } else if (gridKw <= 0 && state.isConsumingFromGrid) {
+      // Recovery!
+      bot.sendMessage(CHAT_ID, `✅ *Recuperació:* La casa torna a ser autosuficient i tornem a vendre excedent a la xarxa! (${Math.abs(gridKw * 1000).toFixed(0)}W)`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
+      state.isConsumingFromGrid = false;
+      saveMemory();
     }
 
     // 2. Excess Generation
@@ -147,10 +154,10 @@ async function checkAlerts() {
       saveMemory();
     }
 
-    // 4. Periodic 2-hour status during the day (6 AM to 10 PM)
+    // 4. Periodic 1.5-hour status during the day (6 AM to 10 PM)
     if (currentHour >= 6 && currentHour < 22) {
-      if (state.lastStatusTime === 0 || now - state.lastStatusTime >= 2 * 60 * 60 * 1000) {
-        const text = `🕒 *Resum periòdic (2h)*\n⚡ Generació: ${(pvKw*1000).toFixed(0)} W\n🏠 Consum: ${(loadKw*1000).toFixed(0)} W\n🔌 Xarxa: ${Math.abs(gridKw*1000).toFixed(0)} W ${gridKw >= 0 ? '(Comprant 💸)' : '(Venent excedent 📉)'}`;
+      if (state.lastStatusTime === 0 || now - state.lastStatusTime >= 1.5 * 60 * 60 * 1000) {
+        const text = `🕒 *Resum periòdic (1.5h)*\n⚡ Generació: ${(pvKw*1000).toFixed(0)} W\n🏠 Consum: ${(loadKw*1000).toFixed(0)} W\n🔌 Xarxa: ${Math.abs(gridKw*1000).toFixed(0)} W ${gridKw >= 0 ? '(Comprant 💸)' : '(Venent excedent 📉)'}`;
         bot.sendMessage(CHAT_ID, text, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
         state.lastStatusTime = now;
         saveMemory();
