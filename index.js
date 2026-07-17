@@ -152,7 +152,7 @@ async function checkAlerts() {
     }
 
     // 4. Periodic 2-hour status during the day (6 AM to 10 PM)
-    if (currentHour >= 6 && currentHour <= 22) {
+    if (currentHour >= 6 && currentHour < 22) {
       if (state.lastStatusTime === 0 || now - state.lastStatusTime >= 2 * 60 * 60 * 1000) {
         const text = `🕒 *Resum periòdic (2h)*\n⚡ Generació: ${(pvKw*1000).toFixed(0)} W\n🏠 Consum: ${(loadKw*1000).toFixed(0)} W\n🔌 Xarxa: ${Math.abs(gridKw*1000).toFixed(0)} W ${gridKw >= 0 ? '(Comprant 💸)' : '(Venent excedent 📉)'}`;
         bot.sendMessage(CHAT_ID, text, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
