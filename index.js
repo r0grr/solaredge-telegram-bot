@@ -19,7 +19,7 @@ const MEMORY_FILE = './memoria.json';
 let state = {
   date: new Date().getDate(),
   dailyMax: 0,
-  lastReportedStep: 0,
+  lastNotifiedPv: 0,
   lastStatusTime: 0,
   lastExcessAlertTime: 0,
   lastConsumptionAlertTime: 0
@@ -106,7 +106,7 @@ async function checkAlerts() {
     if (state.date !== currentDay) {
       state.date = currentDay;
       state.dailyMax = 0;
-      state.lastReportedStep = 0;
+      state.lastNotifiedPv = 0;
     }
 
     // 1. Excessive consumption
@@ -127,27 +127,23 @@ async function checkAlerts() {
       }
     }
 
-    // 3. Step Tracking & Milestones (every 500W, min 1000W)
-    const currentStep = Math.floor(pvKw / 0.5) * 0.5;
-
-    if (state.lastReportedStep === 0) {
-      // First boot of the day: silent init
-      if (currentStep >= 1.0) {
-        state.lastReportedStep = currentStep;
-        state.dailyMax = currentStep;
-        saveMemory();
+    // 3. Absolute Step Tracking (every 500W movement, min 1000W)
+    if (state.lastNotifiedPv === 0 && pvKw >= 1.0) {
+      // First boot or first time reaching 1kW today
+      state.lastNotifiedPv = pvKw;
+      state.dailyMax = pvKw;
+      saveMemory();
+    } else if (state.lastNotifiedPv > 0 && (pvKw >= state.lastNotifiedPv + 0.5 || pvKw <= state.lastNotifiedPv - 0.5)) {
+      // It has moved at least 500W up or down
+      if (pvKw > state.dailyMax) {
+        bot.sendMessage(CHAT_ID, `🔥 *Rècord diari!* La producció acaba d'assolir els *${(pvKw * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
+        state.dailyMax = pvKw;
+      } else if (pvKw > state.lastNotifiedPv) {
+        bot.sendMessage(CHAT_ID, `☀️ *Pujant:* La producció solar s'ha recuperat fins als *${(pvKw * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
+      } else if (pvKw < state.lastNotifiedPv) {
+        bot.sendMessage(CHAT_ID, `📉 *Baixant:* La producció solar ha caigut a *${(pvKw * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
       }
-    } else if (currentStep >= 1.0 && currentStep !== state.lastReportedStep) {
-      // It has changed step
-      if (currentStep > state.dailyMax) {
-        bot.sendMessage(CHAT_ID, `🔥 *Rècord diari!* La producció acaba d'assolir els *${(currentStep * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
-        state.dailyMax = currentStep;
-      } else if (currentStep > state.lastReportedStep) {
-        bot.sendMessage(CHAT_ID, `☀️ *Pujant:* La producció solar s'ha recuperat fins als *${(currentStep * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
-      } else if (currentStep < state.lastReportedStep) {
-        bot.sendMessage(CHAT_ID, `📉 *Baixant:* La producció solar ha caigut als *${(currentStep * 1000).toFixed(0)}W*.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
-      }
-      state.lastReportedStep = currentStep;
+      state.lastNotifiedPv = pvKw;
       saveMemory();
     }
 
