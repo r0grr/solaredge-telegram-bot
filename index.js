@@ -198,8 +198,7 @@ bot.onText(/\/(clima|temps|estacio)/, (msg) => {
   const c = weatherState;
   const hora = c.last_update ? c.last_update.toLocaleTimeString('ca-ES') : 'Sense dades encara';
 
-  let text = `🌤 *Estació Meteorològica Davis Vantage Pro2*\n`;
-  text += `────────────────────────────\n`;
+  let text = `🌤 *Estació Meteorològica Davis Vantage Pro2*\n\n`;
   text += `🌡 Temperatura: *${c.temperatura} °C*\n`;
   text += `💧 Humitat: *${c.humedad} %*\n`;
   text += `💨 Vent: *${c.viento_velocidad} km/h* (${c.viento_direccion}°)\n`;
@@ -207,7 +206,7 @@ bot.onText(/\/(clima|temps|estacio)/, (msg) => {
   text += `🧭 Pressió: *${c.presion} hPa*\n`;
   if (c.radiacion_solar) text += `☀️ Radiació solar: *${c.radiacion_solar} W/m²*\n`;
   if (c.uv) text += `🟣 Índex UV: *${c.uv}*\n`;
-  text += `🕒 _Última actualització: ${hora}_`;
+  text += `\n🕒 _Última actualització: ${hora}_`;
 
   bot.sendMessage(chatId, text, { parse_mode: 'Markdown' }).catch(err => console.error(err));
 });
