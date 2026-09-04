@@ -12,6 +12,7 @@ const SOLAREDGE_API_KEY = process.env.SOLAREDGE_API_KEY;
 
 const MQTT_HOST = process.env.MQTT_BROKER_HOST || 'mosquitto';
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
+const CUMULUS_URL = process.env.CUMULUS_URL || 'http://cumulusmx:8998';
 
 // Horari de silenci general i regla de baix consum (20:30 a 06:30)
 function isTimeInWindow(startHour, startMin, endHour, endMin, date = new Date()) {
@@ -57,8 +58,34 @@ const weatherState = {
   viento_direccion: 'N/D',
   lluvia_hoy: 'N/D',
   presion: 'N/D',
+  radiacion_solar: null,
+  uv: null,
   last_update: null
 };
+
+async function fetchWeatherFromCumulus() {
+  if (!mqttClient.connected) return;
+  try {
+    const res = await axios.get(`${CUMULUS_URL}/api/data/currentdata`, { timeout: 4000 });
+    const d = res.data;
+    if (d && d.OutdoorTemp !== undefined && d.OutdoorTemp !== null) {
+      mqttClient.publish('clima/temperatura', String(d.OutdoorTemp), { retain: true });
+      mqttClient.publish('clima/humedad', String(d.OutdoorHum), { retain: true });
+      mqttClient.publish('clima/presion', String(d.Pressure), { retain: true });
+      mqttClient.publish('clima/viento_velocidad', String(d.WindAverage ?? d.WindLatest ?? 0), { retain: true });
+      mqttClient.publish('clima/viento_direccion', String(d.Bearing ?? 0), { retain: true });
+      mqttClient.publish('clima/lluvia_hoy', String(d.RainToday ?? 0), { retain: true });
+      if (d.SolarRad !== undefined && d.SolarRad !== null) {
+        mqttClient.publish('clima/radiacion_solar', String(d.SolarRad), { retain: true });
+      }
+      if (d.UVindex !== undefined && d.UVindex !== null) {
+        mqttClient.publish('clima/uv', String(d.UVindex), { retain: true });
+      }
+    }
+  } catch (err) {
+    // Si Cumulus MX no està llest o reiniciant
+  }
+}
 
 mqttClient.on('connect', () => {
   console.log('✅ [MQTT] Conectat correctament al broker Mosquitto.');
@@ -178,6 +205,8 @@ bot.onText(/\/(clima|temps|estacio)/, (msg) => {
   text += `💨 Vent: *${c.viento_velocidad} km/h* (${c.viento_direccion}°)\n`;
   text += `🌧️ Pluja avui: *${c.lluvia_hoy} mm*\n`;
   text += `🧭 Pressió: *${c.presion} hPa*\n`;
+  if (c.radiacion_solar) text += `☀️ Radiació solar: *${c.radiacion_solar} W/m²*\n`;
+  if (c.uv) text += `🟣 Índex UV: *${c.uv}*\n`;
   text += `🕒 _Última actualització: ${hora}_`;
 
   bot.sendMessage(chatId, text, { parse_mode: 'Markdown' }).catch(err => console.error(err));
@@ -319,4 +348,8 @@ if (!TELEGRAM_TOKEN || !CHAT_ID) {
   
   checkAlerts();
   setInterval(checkAlerts, POLL_INTERVAL_MS);
+
+  // Monitorització meteorològica en temps real des de Cumulus MX (cada 15s)
+  fetchWeatherFromCumulus();
+  setInterval(fetchWeatherFromCumulus, 15000);
 }
