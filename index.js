@@ -268,7 +268,7 @@ async function checkAlerts() {
     // 2. Excedent de Generació (venda a la xarxa)
     if (gridKw <= EXCESS_THRESHOLD_KW) {
       if (now - state.lastExcessAlertTime > ALERT_COOLDOWN_MS) {
-        bot.sendMessage(CHAT_ID, `💡 *Energia Sobrant!* Esteu regalant a la xarxa ${Math.abs(gridKw * 1000).toFixed(0)}W ara mateix.\n\n✅ És un bon moment per posar rentadores, encendre aires condicionats o el termo d'aigua calenta.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
+        bot.sendMessage(CHAT_ID, `💡 *Energia Sobrant!* Esteu venent a la xarxa ${Math.abs(gridKw * 1000).toFixed(0)}W ara mateix.\n\n✅ És un bon moment per posar rentadores, encendre aires condicionats o el termo d'aigua calenta.`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
         state.lastExcessAlertTime = now;
         saveMemory();
       }
