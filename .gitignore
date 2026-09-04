@@ -1,2 +1,5 @@
 node_modules/
 .env
+memoria.json
+*.png
+*.pdf
