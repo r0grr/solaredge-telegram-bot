@@ -13,26 +13,26 @@ const SOLAREDGE_API_KEY = process.env.SOLAREDGE_API_KEY;
 const MQTT_HOST = process.env.MQTT_BROKER_HOST || 'mosquitto';
 const MQTT_PORT = process.env.MQTT_PORT || 1883;
 
-// Horari de silenci general nocturn (per defecte: de 22:00 a 06:00)
-const QUIET_START_HOUR = process.env.QUIET_START_HOUR !== undefined ? parseInt(process.env.QUIET_START_HOUR, 10) : 22;
-const QUIET_END_HOUR = process.env.QUIET_END_HOUR !== undefined ? parseInt(process.env.QUIET_END_HOUR, 10) : 6;
-
-function isQuietHours(date = new Date()) {
-  const h = date.getHours();
-  if (QUIET_START_HOUR > QUIET_END_HOUR) {
-    return h >= QUIET_START_HOUR || h < QUIET_END_HOUR;
+// Horari de silenci general i regla de baix consum (20:30 a 06:30)
+function isTimeInWindow(startHour, startMin, endHour, endMin, date = new Date()) {
+  const totalMin = date.getHours() * 60 + date.getMinutes();
+  const start = startHour * 60 + startMin;
+  const end = endHour * 60 + endMin;
+  if (start > end) {
+    return totalMin >= start || totalMin < end;
   }
-  return h >= QUIET_START_HOUR && h < QUIET_END_HOUR;
+  return totalMin >= start && totalMin < end;
+}
+
+// Horari de silenci general nocturn (20:30 a 06:30) per a la resta d'alertes proactives
+function isQuietHours(date = new Date()) {
+  return isTimeInWindow(20, 30, 6, 30, date);
 }
 
 // Regla de consum vespre/nit: Si a partir de les 20:30 la producció baixa de 500W,
-// silenciar avisos de consum fins a les 06:00 del matí
+// silenciar avisos de consum fins a les 06:30 del matí
 function isEveningNightConsumptionSilenced(pvKw, date = new Date()) {
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  const timeInMinutes = hour * 60 + minute;
-  const inWindow = timeInMinutes >= (20 * 60 + 30) || timeInMinutes < (6 * 60);
-  return inWindow && pvKw < 0.5;
+  return isTimeInWindow(20, 30, 6, 30, date) && pvKw < 0.5;
 }
 
 // Inicialització del Bot de Telegram
@@ -244,9 +244,9 @@ async function checkAlerts() {
     // 1. Consum excessiu de la xarxa
     if (gridKw >= CONSUMPTION_THRESHOLD_KW) {
       state.isConsumingFromGrid = true;
-      // Regla: si a partir de les 20:30 la producció baixa de 500W, silenci fins a les 06:00
+      // Regla: si a partir de les 20:30 la producció baixa de 500W, silenci fins a les 06:30
       if (isEveningNightConsumptionSilenced(pvKw)) {
-        console.log(`🌙 [Silenci Consum Vespre/Nit] Producció < 500W (${(pvKw*1000).toFixed(0)}W) entre 20:30 i 06:00. Avís de consum cancel·lat.`);
+        console.log(`🌙 [Silenci Consum Vespre/Nit] Producció < 500W (${(pvKw*1000).toFixed(0)}W) entre 20:30 i 06:30. Avís de consum cancel·lat.`);
       } else if (now - state.lastConsumptionAlertTime > ALERT_COOLDOWN_MS) {
         bot.sendMessage(CHAT_ID, `🚨 *Avís de Consum:* S'estan comprant ${(gridKw * 1000).toFixed(0)}W de la xarxa elèctrica. Reviseu si hi ha alguna cosa encesa que es pugui apagar!`, { parse_mode: 'Markdown' }).catch(err => console.error("Error enviant Telegram:", err));
         state.lastConsumptionAlertTime = now;
@@ -259,9 +259,9 @@ async function checkAlerts() {
       saveMemory();
     }
 
-    // Horari de silenci absolut nocturn (22:00 a 06:00) per a la resta d'alertes proactives
+    // Horari de silenci absolut nocturn (20:30 a 06:30) per a la resta d'alertes proactives
     if (isQuietHours()) {
-      console.log(`🌙 [Silenci Nocturn (${QUIET_START_HOUR}:00 - ${QUIET_END_HOUR}:00)] Alertes automàtiques silenciades.`);
+      console.log(`🌙 [Silenci Nocturn (20:30 - 06:30)] Alertes automàtiques silenciades.`);
       return;
     }
 
